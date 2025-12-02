@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTM Validation Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .upload-zone {
+            border: 3px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .upload-zone.drag-over {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 12px; text-align: left; border: 1px solid #e5e7eb; }
+        th { background-color: #f9fafb; font-weight: 600; }
+        tr:hover { background-color: #f9fafb; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <h1 class="text-5xl font-bold text-white mb-2">
+                <i class="fas fa-rocket mr-3"></i>GTM Validation Engine
+            </h1>
+            <p class="text-white text-lg opacity-90">Powered by Gemini 2.5 Flash + Supabase</p>
+            
+            <!-- Navigation -->
+            <div class="mt-4 flex justify-center gap-4">
+                <button onclick="showSection('upload')" id="btnUpload" class="bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition">
+                    <i class="fas fa-upload mr-2"></i>New Validation
+                </button>
+                <button onclick="showSection('history')" id="btnHistory" class="bg-white bg-opacity-20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-opacity-30 transition">
+                    <i class="fas fa-history mr-2"></i>History
+                </button>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div id="uploadSection" class="glass rounded-2xl shadow-2xl p-8 mb-8 fade-in">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <i class="fas fa-upload mr-2 text-purple-600"></i>Upload Pitch Deck
+            </h2>
+            
+            <div class="space-y-4">
+                <!-- Company Name -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-building mr-2 text-purple-600"></i>Company Name
+                    </label>
+                    <input 
+                        type="text" 
+                        id="companyName" 
+                        placeholder="Enter company name"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none transition"
+                    >
+                </div>
+
+                <!-- API Key Input -->
+                <div id="apiKeySection">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-key mr-2 text-purple-600"></i>Gemini API Key
+                    </label>
+                    <input 
+                        type="password" 
+                        id="apiKey" 
+                        placeholder="Enter your Gemini API key"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none transition"
+                    >
+                </div>
+                
+                <!-- API Key from .env message -->
+                <div id="envKeyMessage" class="hidden bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div class="flex items-center text-green-800">
+                        <i class="fas fa-check-circle text-2xl mr-3"></i>
+                        <div>
+                            <div class="font-semibold">API Key Loaded</div>
+                            <div class="text-sm text-green-700">Using API key from .env file</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Database Status -->
+                <div id="dbStatusMessage" class="hidden">
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center text-blue-800">
+                            <i class="fas fa-database text-2xl mr-3"></i>
+                            <div>
+                                <div class="font-semibold">Database Connected</div>
+                                <div class="text-sm text-blue-700">Results will be saved to Supabase</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-file mr-2 text-purple-600"></i>Pitch Deck File
+                    </label>
+                    <div id="dropZone" class="upload-zone rounded-lg p-12 text-center cursor-pointer">
+                        <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600 text-lg font-medium mb-2">
+                            Drag & drop your file here or click to browse
+                        </p>
+                        <p class="text-gray-400 text-sm">
+                            Supports: PDF, PPTX, TXT (Max 50MB)
+                        </p>
+                        <input type="file" id="fileInput" accept=".pdf,.pptx,.ppt,.txt" class="hidden">
+                    </div>
+                    <div id="fileName" class="mt-3 text-sm text-gray-600 hidden">
+                        <i class="fas fa-file-alt mr-2"></i><span></span>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    id="validateBtn" 
+                    class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
+                >
+                    <i class="fas fa-magic mr-2"></i>Validate GTM Strategy
+                </button>
+                
+                <!-- Status Indicator (for debugging) -->
+                <div id="statusIndicator" class="text-sm text-gray-600 text-center hidden">
+                    <div id="statusText"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Section -->
+        <div id="loadingSection" class="glass rounded-2xl shadow-2xl p-12 text-center hidden fade-in">
+            <div class="spinner mx-auto mb-6"></div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Analyzing Your Pitch Deck...</h3>
+            <p class="text-gray-600">This may take 30-60 seconds</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden fade-in">
+            <!-- Header with Download -->
+            <div class="glass rounded-2xl shadow-2xl p-8 mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-chart-bar mr-2 text-purple-600"></i>GTM SCOREBOARD — <span id="resultCompanyName"></span>
+                    </h2>
+                    <div class="flex gap-2">
+                        <button id="downloadBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                            <i class="fas fa-download mr-2"></i>Download
+                        </button>
+                        <button id="newAnalysisBtn" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-plus mr-2"></i>New
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Validation Date -->
+                <div class="mb-6 text-gray-600">
+                    <i class="fas fa-calendar mr-2"></i>Validated: <span id="validatedDate"></span>
+                </div>
+
+                <!-- GTM Criteria Table -->
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-purple-100">
+                                <th class="text-left">GTM Criteria</th>
+                                <th class="text-center">Weight</th>
+                                <th class="text-center">Score (1-5)</th>
+                                <th class="text-left">Summary</th>
+                                <th class="text-center">Weighted Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="criteriaTable">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-green-50 font-bold">
+                                <td colspan="4" class="text-right">Total Weighted GTM Score:</td>
+                                <td class="text-center" id="totalWeightedScore">0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Overall Score & Stage -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-blue-50 rounded-xl p-6">
+                        <div class="text-sm text-blue-800 mb-2">Overall Score (out of 5)</div>
+                        <div class="text-4xl font-bold text-blue-900" id="overallScore">0.00</div>
+                    </div>
+                    
+                    <div class="bg-purple-50 rounded-xl p-6">
+                        <div class="text-sm text-purple-800 mb-2">Stage / Readiness</div>
+                        <div class="text-2xl font-bold text-purple-900" id="stageReadiness">-</div>
+                    </div>
+                </div>
+
+                <!-- Overall Summary -->
+                <div class="mt-6 bg-gray-50 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-file-alt mr-2"></i>Overall Summary
+                    </h3>
+                    <p class="text-gray-700" id="overallSummary"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="historySection" class="hidden fade-in">
+            <div class="glass rounded-2xl shadow-2xl p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-history mr-2 text-purple-600"></i>Validation History
+                </h2>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-purple-100">
+                                <th>Company Name</th>
+                                <th>Business Clarity (10%)</th>
+                                <th>GTM Hypothesis (15%)</th>
+                                <th>Market Validation (15%)</th>
+                                <th>Product Validation (15%)</th>
+                                <th>Channel & Messaging (15%)</th>
+                                <th>Financial Validation (10%)</th>
+                                <th>Operational Readiness (10%)</th>
+                                <th>Experimentation (10%)</th>
+                                <th>Weighted GTM Score</th>
+                                <th>Stage / Readiness</th>
+                                <th>Validated Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr>
+                                <td colspan="12" class="text-center text-gray-500 py-8">Loading history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentResult = null;
+        let hasEnvKey = {{ has_env_key|tojson }};
+        let hasSupabase = {{ has_supabase|tojson }};
+
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const companyName = document.getElementById('companyName');
+        const apiKey = document.getElementById('apiKey');
+        const validateBtn = document.getElementById('validateBtn');
+        const uploadSection = document.getElementById('uploadSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const historySection = document.getElementById('historySection');
+        const apiKeySection = document.getElementById('apiKeySection');
+        const envKeyMessage = document.getElementById('envKeyMessage');
+        const dbStatusMessage = document.getElementById('dbStatusMessage');
+
+        // Check configuration
+        if (hasEnvKey) {
+            apiKeySection.classList.add('hidden');
+            envKeyMessage.classList.remove('hidden');
+        }
+
+        if (hasSupabase) {
+            dbStatusMessage.classList.remove('hidden');
+        }
+
+        // Section Navigation
+        function showSection(section) {
+            if (section === 'upload') {
+                uploadSection.classList.remove('hidden');
+                resultsSection.classList.add('hidden');
+                historySection.classList.add('hidden');
+                document.getElementById('btnUpload').className = "bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition";
+                document.getElementById('btnHistory').className = "bg-white bg-opacity-20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-opacity-30 transition";
+            } else if (section === 'history') {
+                uploadSection.classList.add('hidden');
+                resultsSection.classList.add('hidden');
+                historySection.classList.remove('hidden');
+                document.getElementById('btnUpload').className = "bg-white bg-opacity-20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-opacity-30 transition";
+                document.getElementById('btnHistory').className = "bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition";
+                loadHistory();
+            }
+        }
+
+        // File Upload
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        function handleFile(file) {
+            if (file) {
+                fileName.classList.remove('hidden');
+                fileName.querySelector('span').textContent = file.name;
+                
+                // Add visual feedback
+                dropZone.classList.add('border-green-500', 'bg-green-50');
+                dropZone.querySelector('i').classList.add('text-green-500');
+                
+                checkForm();
+            }
+        }
+
+        companyName.addEventListener('input', checkForm);
+        apiKey.addEventListener('input', checkForm);
+
+        function checkForm() {
+            const hasFile = fileInput.files.length > 0;
+            const hasCompany = companyName.value.trim().length > 0;
+            const hasKey = hasEnvKey || apiKey.value.trim().length > 0;
+            
+            console.log('Form check:', { hasFile, hasCompany, hasKey, hasEnvKey });
+            
+            // Update status indicator
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const status = [];
+            
+            if (!hasCompany) status.push('❌ Company name required');
+            else status.push('✅ Company name');
+            
+            if (!hasFile) status.push('❌ File required');
+            else status.push('✅ File uploaded');
+            
+            if (!hasKey) status.push('❌ API key required');
+            else status.push('✅ API key set');
+            
+            statusText.innerHTML = status.join(' | ');
+            statusIndicator.classList.remove('hidden');
+            
+            validateBtn.disabled = !(hasFile && hasCompany && hasKey);
+            
+            // Visual feedback
+            if (hasFile && hasCompany && hasKey) {
+                validateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                validateBtn.classList.add('hover:from-purple-700', 'hover:to-indigo-700');
+                statusIndicator.classList.add('text-green-600');
+                statusIndicator.classList.remove('text-orange-600');
+            } else {
+                validateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                validateBtn.classList.remove('hover:from-purple-700', 'hover:to-indigo-700');
+                statusIndicator.classList.add('text-orange-600');
+                statusIndicator.classList.remove('text-green-600');
+            }
+        }
+
+        // Validate
+        validateBtn.addEventListener('click', async () => {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('company_name', companyName.value.trim());
+            
+            if (!hasEnvKey) {
+                formData.append('api_key', apiKey.value.trim());
+            }
+
+            uploadSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/validate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                    loadingSection.classList.add('hidden');
+                    uploadSection.classList.remove('hidden');
+                    return;
+                }
+
+                currentResult = result;
+                displayResults(result);
+                loadingSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                loadingSection.classList.add('hidden');
+                uploadSection.classList.remove('hidden');
+            }
+        });
+
+        // Display Results
+        function displayResults(data) {
+            document.getElementById('resultCompanyName').textContent = data.company_name;
+            document.getElementById('validatedDate').textContent = new Date(data.validated_date).toLocaleString();
+            document.getElementById('totalWeightedScore').textContent = data.total_weighted_score.toFixed(2);
+            document.getElementById('overallScore').textContent = data.total_score_out_of_5.toFixed(2);
+            document.getElementById('stageReadiness').textContent = getStageEmoji(data.total_score_out_of_5) + ' ' + data.stage_readiness;
+            document.getElementById('overallSummary').textContent = data.overall_summary;
+
+            const tbody = document.getElementById('criteriaTable');
+            tbody.innerHTML = '';
+            
+            data.dimensions.forEach(dim => {
+                const row = tbody.insertRow();
+                const keySummary = dim.key_summary || dim.summary.substring(0, 80) + '...';
+                const detailedSummary = dim.detailed_summary || dim.summary || '';
+                const rowId = `dim-${dim.name.replace(/\s+/g, '-').toLowerCase()}`;
+                
+                row.innerHTML = `
+                    <td class="font-semibold">${dim.name}</td>
+                    <td class="text-center">${dim.weight}%</td>
+                    <td class="text-center font-bold text-lg">${dim.score}</td>
+                    <td class="text-sm">
+                        <div class="font-medium">${keySummary}</div>
+                        ${detailedSummary && detailedSummary !== keySummary ? `
+                            <button onclick="toggleDetail('${rowId}')" class="text-blue-600 text-xs hover:underline mt-1">
+                                <i class="fas fa-info-circle mr-1"></i>View Details
+                            </button>
+                            <div id="${rowId}" class="hidden mt-2 text-xs text-gray-600 p-2 bg-gray-50 rounded">
+                                ${detailedSummary}
+                            </div>
+                        ` : ''}
+                    </td>
+                    <td class="text-center font-semibold">${dim.weighted_score.toFixed(2)}</td>
+                `;
+            });
+        }
+
+        function getStageEmoji(score) {
+            if (score >= 4) return '✅';
+            if (score >= 3) return '♻️';
+            if (score >= 2) return '⚠️';
+            return '🔴';
+        }
+
+        function toggleDetail(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden');
+            }
+        }
+
+        // Load History
+        async function loadHistory() {
+            const tbody = document.getElementById('historyTable');
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8">Loading...</td></tr>';
+
+            try {
+                console.log('📊 Fetching history...');
+                const response = await fetch('/api/history');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const history = await response.json();
+                console.log('✅ History received:', history);
+
+                tbody.innerHTML = '';
+
+                if (!history || history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="12" class="text-center text-gray-500 py-8">No validation history yet. Validate a pitch deck to see it here!</td></tr>';
+                    return;
+                }
+
+                console.log(`📊 Displaying ${history.length} records`);
+
+                history.forEach((item, index) => {
+                    console.log(`Record ${index + 1}:`, item.company_name, item.total_score_out_of_5);
+                    const row = tbody.insertRow();
+                    const stageEmoji = getStageEmoji(item.total_score_out_of_5 || 0);
+                    const score = item.total_score_out_of_5 ? item.total_score_out_of_5.toFixed(2) : '0.00';
+                    row.innerHTML = `
+                        <td class="font-semibold">${item.company_name || 'N/A'}</td>
+                        <td class="text-center">${item.business_clarity_score || '-'}</td>
+                        <td class="text-center">${item.gtm_hypothesis_score || '-'}</td>
+                        <td class="text-center">${item.market_validation_score || '-'}</td>
+                        <td class="text-center">${item.product_validation_score || '-'}</td>
+                        <td class="text-center">${item.channel_and_messaging_score || '-'}</td>
+                        <td class="text-center">${item.financial_validation_score || '-'}</td>
+                        <td class="text-center">${item.operational_readiness_score || '-'}</td>
+                        <td class="text-center">${item.experimentation_score || '-'}</td>
+                        <td class="text-center font-bold">${score}</td>
+                        <td class="text-center">${stageEmoji} ${item.stage_readiness || 'N/A'}</td>
+                        <td class="text-sm">${item.validated_date ? new Date(item.validated_date).toLocaleDateString() : 'N/A'}</td>
+                    `;
+                });
+
+                console.log('✅ History table populated');
+
+            } catch (error) {
+                console.error('❌ Error loading history:', error);
+                tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 py-8">
+                    Error loading history: ${error.message}<br>
+                    <button onclick="loadHistory()" class="text-blue-600 hover:underline mt-2">
+                        <i class="fas fa-redo mr-1"></i>Try Again
+                    </button>
+                </td></tr>`;
+            }
+        }
+
+        // Download Report
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            if (!currentResult) return;
+
+            const response = await fetch('/api/download-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentResult)
+            });
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gtm_report_${currentResult.company_name}.txt`;
+            a.click();
+        });
+
+        // New Analysis
+        document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+            showSection('upload');
+            fileInput.value = '';
+            companyName.value = '';
+            fileName.classList.add('hidden');
+            currentResult = null;
+            checkForm();
+        });
+    </script>
+</body>
+</html>
