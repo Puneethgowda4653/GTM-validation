@@ -266,7 +266,7 @@ def save_to_supabase(validation_result: dict) -> dict:
             "company_name": company_name,
             "total_weighted_score": float(validation_result.get('total_weighted_score', 0)),
             "total_score_out_of_5": float(validation_result.get('total_score_out_of_5', 0)),
-            "stage_readiness": str(validation_result.get('stage_readiness', '')),
+            "stage_readiness": str(validation_result.get('stage_read -iness', '')),
             "overall_summary": str(validation_result.get('overall_summary', '')),
             "validated_date": validation_result.get('validated_date')
         }
